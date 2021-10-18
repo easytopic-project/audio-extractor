@@ -12,12 +12,11 @@ def extract(file):
 
             subprocess.call(command, shell=True)
 
-            fs, data = wavfile.read(fp_a.name)
-            print(len(bytes(data)))
-            
-            return bytes(data)
+            # fs, data = wavfile.read(fp_a.name) Audio não era executado quando o retorno era data
+            #                                    talvez seja necessário realizar adaptações
 
-        '''print(fp.name, flush=True)
-        audioclip = VideoFileClip(fp.name).audio
-        print(audioclip, flush=True)
-        return audioclip'''
+            f = open(fp_a.name, "rb")
+            fileData = f.read()
+            f.close()
+
+            return bytes(fileData)

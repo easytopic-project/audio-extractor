@@ -1,54 +1,37 @@
 import pika
 import time
-from DAO.connection import Connection
 import os
-import multiprocessing
 import json
 import logging
 from lib.extract_audio import extract
-import threading
 from files_ms_client import upload, download
 
-
-LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-              '-35s %(lineno) -5d: %(message)s')
-LOGGER = logging.getLogger(__name__)
-
+FILES_SERVER = os.environ.get("FILES_SERVER", "localhost:3001") 
+QUEUE_SERVER_HOST, QUEUE_SERVER_PORT = os.environ.get("QUEUE_SERVER", "localhost:5672").split(":")
+Q_IN = os.environ.get("INPUT_QUEUE_NAME", "ae-in")
+Q_OUT = os.environ.get("OUTPUT_QUEUE_NAME", "ae-out")
 
 def callback(ch, method, properties, body):
 
     try:
         print(" [x] Received %r" % body, flush=True)
         args = json.loads(body)
-        oid = args['oid']
-        project_id = args['project_id']
-        print(str(oid) + '!!!???', flush=True)
-        print(str(project_id) + '!!!???', flush=True)
-
-        # conn = Connection()
-        # file = conn.get_doc_mongo(file_oid=oid)
-        file = download(args['file'], buffer=True)
-
+        file = download(args['file']['name'], url="http://" + FILES_SERVER, buffer=True)
         data = extract(file)  # calls the audio extract algorithm
-        # print(data,  flush=True)
-
-        conn = Connection()
         try:
-            uploaded = upload(data, buffer=True, mime='audio/wav')
-
-            file_oid = conn.insert_doc_mongo(data)
-
-            conn.insert_jobs('audio_extractor', 'done', file_oid, project_id)
-            message = {'type': 'vad', 'status': 'new',
-                       'oid': file_oid, 'project_id': project_id, 'file': uploaded['name']}
+            uploaded = upload(data, url="http://" + FILES_SERVER, buffer=True, mime='audio/wav')
+            message = {
+                **args,
+                'audio': uploaded,
+                }
             connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=os.environ['QUEUE_SERVER']))
+                pika.ConnectionParameters(host=QUEUE_SERVER_HOST, port=QUEUE_SERVER_PORT))
             channel = connection.channel()
-
-            channel.queue_declare(queue='vad', durable=True)
+            print("got new connection")
+            channel.queue_declare(queue=Q_OUT, durable=True)
             channel.basic_publish(
-                exchange='', routing_key='vad', body=json.dumps(message))
-
+                exchange='', routing_key=Q_OUT, body=json.dumps(message))
+            print("works")
         except Exception as e:
             print(e, flush=True)
 
@@ -64,35 +47,20 @@ def consume():
     while not success:
         try:
             connection = pika.BlockingConnection(
-                pika.ConnectionParameters(host=os.environ['QUEUE_SERVER']))
+                pika.ConnectionParameters(host=QUEUE_SERVER_HOST, port=QUEUE_SERVER_PORT))
             channel = connection.channel()
             success = True
         except:
             time.sleep(30)
-
             pass
 
-    channel.queue_declare(queue='audio_extractor', durable=True)
-    print(' [*] Waiting for messages. To exit press CTRL+C')
+    channel.queue_declare(queue=Q_IN, durable=True)
+    channel.queue_declare(queue=Q_OUT, durable=True)
+    print(' [*] Waiting for messages. To exit press CTRL+C', flush=True)
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue='audio_extractor',
+    channel.basic_consume(queue=Q_IN,
                           on_message_callback=callback)
 
     channel.start_consuming()
 
-
 consume()
-'''
-workers = int(os.environ['NUM_WORKERS'])
-pool = multiprocessing.Pool(processes=workers)
-for i in range(0, workers):
-    pool.apply_async(consume)
-
-# Stay alive
-try:
-    while True:
-        continue
-except KeyboardInterrupt:
-    print(' [*] Exiting...')
-    pool.terminate()
-    pool.join()'''
