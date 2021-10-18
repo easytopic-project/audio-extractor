@@ -1,0 +1,42 @@
+{
+  "version": "1.0",
+  "id": "audio-extractor",
+  "name": "Audio Extractor",
+  "description": "Extracts audio from mp4 file",
+  "input": [
+    {
+      "id": "video",
+      "name": "Video",
+      "description": "Video from witch the audio will be extracted",
+      "type": "file",
+      "required": true,
+      "accept": ["video/*"]
+    }
+  ],
+  "output": [
+    {
+      "id": "audio-extractor",
+      "from": "audio-extractor:audio",
+      "type": "file",
+      "name": "Audio Extractor Result",
+      "description": "The result of the Audio Extractor processing"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "audio-extractor",
+      "type": "aggregation",
+      "jobs": [
+        {
+          "id": "audio-extractor",
+          "queues": [
+            {"env": "AUDIO_EXTRACTOR_INPUT_QUEUE", "default": "audio_extractor_in"},
+            {"env": "AUDIO_EXTRACTOR_OUTPUT_QUEUE", "default": "audio_extractor_out"}
+          ],
+          "arguments": {"file": "video"},
+          "output": ["audio"]
+        }
+      ]
+    }
+  ]
+}
