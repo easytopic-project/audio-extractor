@@ -5,8 +5,6 @@ services:
     build: .
     environment:
       QUEUE_SERVER: "localhost:5672"
-      INPUT_QUEUE_NAME: "ae-in"
-      OUTPUT_QUEUE_NAME: "ae-out"
-      FILES_SERVER: "http://localhost:3001"
-    depends_on:
-      - rabbitmq
+      FILES_SERVER: "localhost:3001"
+      INPUT_QUEUE_NAME: "audio_extractor_in"
+      OUTPUT_QUEUE_NAME: "audio_extractor_out"

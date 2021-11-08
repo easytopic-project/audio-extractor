@@ -8,8 +8,8 @@ from files_ms_client import upload, download
 
 FILES_SERVER = os.environ.get("FILES_SERVER", "localhost:3001") 
 QUEUE_SERVER_HOST, QUEUE_SERVER_PORT = os.environ.get("QUEUE_SERVER", "localhost:5672").split(":")
-Q_IN = os.environ.get("INPUT_QUEUE_NAME", "ae-in")
-Q_OUT = os.environ.get("OUTPUT_QUEUE_NAME", "ae-out")
+Q_IN = os.environ.get("INPUT_QUEUE_NAME", "audio_extractor_in")
+Q_OUT = os.environ.get("OUTPUT_QUEUE_NAME", "audio_extractor_out")
 
 def callback(ch, method, properties, body):
 
@@ -31,7 +31,6 @@ def callback(ch, method, properties, body):
             channel.queue_declare(queue=Q_OUT, durable=True)
             channel.basic_publish(
                 exchange='', routing_key=Q_OUT, body=json.dumps(message))
-            print("works")
         except Exception as e:
             print(e, flush=True)
 
@@ -58,8 +57,7 @@ def consume():
     channel.queue_declare(queue=Q_OUT, durable=True)
     print(' [*] Waiting for messages. To exit press CTRL+C', flush=True)
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=Q_IN,
-                          on_message_callback=callback)
+    channel.basic_consume(queue=Q_IN, on_message_callback=callback)
 
     channel.start_consuming()
 
